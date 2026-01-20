@@ -80,7 +80,7 @@ public class AnalyserService {
             String jsonOutput = jsonBuilder.toString().trim();
             if (!jsonOutput.isEmpty()) {
                 // Process JSON response to create smaller JSON objects
-                processJsonResponse(jsonOutput);
+                processJsonResponse(jsonOutput, source);
             } else {
                 System.out.println("No JSON output found for URL: " + url);
             }
@@ -91,7 +91,7 @@ public class AnalyserService {
         }
     }
 
-    private void processJsonResponse(String jsonResponse) {
+    private void processJsonResponse(String jsonResponse, String source) {
         try {
             ObjectNode mainJson = (ObjectNode) objectMapper.readTree(jsonResponse);
 
@@ -133,6 +133,11 @@ public class AnalyserService {
             if (mainJson.has("date_of_news_issue")) {
                 dayJson.put("date", mainJson.get("date_of_news_issue").asText());
             }
+
+            // Add canonical source to dayJson for source-aware processing
+            String canonicalSource = mapSourceToCanonical(source);
+            dayJson.put("source", canonicalSource);
+
             if (mainJson.has("state_driven_messaging")) {
                 dayJson.put("state_driven_messaging", mainJson.get("state_driven_messaging").asInt());
             }
@@ -158,6 +163,21 @@ public class AnalyserService {
         } catch (Exception e) {
             System.err.println("Error processing JSON response: " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    /**
+     * Maps source website strings to canonical source categories
+     */
+    private String mapSourceToCanonical(String source) {
+        if (source == null) return "unknown";
+        switch (source.toLowerCase()) {
+            case "informer.rs":
+                return "government";
+            case "021.rs":
+                return "independent";
+            default:
+                return "unknown";
         }
     }
 

@@ -122,9 +122,10 @@ public class DataProcessingService {
     }
 
     /**
-     * Process day JSON data
+     * Process day JSON data with source awareness
+     * Routes data to government or independent nested structure based on source field
      * Checks if day record exists using date as unique identifier
-     * If it exists, adds the values from the JSON to the existing values
+     * If it exists, adds the values from the JSON to the existing source-specific values
      * If it doesn't exist, creates a new day record
      */
     public void processDayJson(ObjectNode dayJson) {
@@ -135,161 +136,138 @@ public class DataProcessingService {
             return;
         }
 
+        // Extract source - defaults to "unknown"
+        String source = dayJson.path("source").asText("unknown");
+
         Optional<Day> existingDay = dayRepository.findByDate(date);
+        Day day;
 
         if (existingDay.isPresent()) {
-            // Update existing day by adding values
-            Day day = existingDay.get();
-
-            // Update state driven messaging
-            if (dayJson.has("state_driven_messaging") && !dayJson.path("state_driven_messaging").isNull()) {
-                Integer currentValue = day.getStateDrivenMessaging();
-                if (currentValue == null) {
-                    currentValue = 0;
-                }
-                day.setStateDrivenMessaging(currentValue + dayJson.path("state_driven_messaging").asInt());
-            }
-
-            // Update pro student messaging
-            if (dayJson.has("pro_student_messaging") && !dayJson.path("pro_student_messaging").isNull()) {
-                Integer currentValue = day.getProStudentMessaging();
-                if (currentValue == null) {
-                    currentValue = 0;
-                }
-                day.setProStudentMessaging(currentValue + dayJson.path("pro_student_messaging").asInt());
-            }
-
-            // Update student mentions
-            if (dayJson.has("student_mentions")) {
-                ObjectNode mentionsNode = (ObjectNode) dayJson.path("student_mentions");
-
-                if (day.getStudentMentions() == null) {
-                    day.setStudentMentions(new Day.StudentMentions());
-                }
-
-                Day.StudentMentions mentions = day.getStudentMentions();
-
-                if (mentionsNode.has("good_count") && !mentionsNode.path("good_count").isNull()) {
-                    Integer currentValue = mentions.getGoodCount();
-                    if (currentValue == null) {
-                        currentValue = 0;
-                    }
-                    mentions.setGoodCount(currentValue + mentionsNode.path("good_count").asInt());
-                }
-
-                if (mentionsNode.has("bad_count") && !mentionsNode.path("bad_count").isNull()) {
-                    Integer currentValue = mentions.getBadCount();
-                    if (currentValue == null) {
-                        currentValue = 0;
-                    }
-                    mentions.setBadCount(currentValue + mentionsNode.path("bad_count").asInt());
-                }
-            }
-
-            // Update state mentions
-            if (dayJson.has("state_mentions")) {
-                ObjectNode mentionsNode = (ObjectNode) dayJson.path("state_mentions");
-
-                if (day.getStateMentions() == null) {
-                    day.setStateMentions(new Day.StateMentions());
-                }
-
-                Day.StateMentions mentions = day.getStateMentions();
-
-                if (mentionsNode.has("good_count") && !mentionsNode.path("good_count").isNull()) {
-                    Integer currentValue = mentions.getGoodCount();
-                    if (currentValue == null) {
-                        currentValue = 0;
-                    }
-                    mentions.setGoodCount(currentValue + mentionsNode.path("good_count").asInt());
-                }
-
-                if (mentionsNode.has("bad_count") && !mentionsNode.path("bad_count").isNull()) {
-                    Integer currentValue = mentions.getBadCount();
-                    if (currentValue == null) {
-                        currentValue = 0;
-                    }
-                    mentions.setBadCount(currentValue + mentionsNode.path("bad_count").asInt());
-                }
-            }
-
-            // Update propaganda count
-            if (dayJson.has("propaganda_count") && !dayJson.path("propaganda_count").isNull()) {
-                Integer currentValue = day.getPropagandaCount();
-                if (currentValue == null) {
-                    currentValue = 0;
-                }
-                day.setPropagandaCount(currentValue + dayJson.path("propaganda_count").asInt());
-            }
-
-            // Update pro protest count
-            if (dayJson.has("pro_protest_count") && !dayJson.path("pro_protest_count").isNull()) {
-                Integer currentValue = day.getProProtestCount();
-                if (currentValue == null) {
-                    currentValue = 0;
-                }
-                day.setProProtestCount(currentValue + dayJson.path("pro_protest_count").asInt());
-            }
-
-            dayRepository.save(day);
+            day = existingDay.get();
         } else {
-            // Create new day
-            Day day = new Day();
+            day = new Day();
             day.setDate(date);
+        }
 
-            // Set state driven messaging
-            if (dayJson.has("state_driven_messaging") && !dayJson.path("state_driven_messaging").isNull()) {
-                day.setStateDrivenMessaging(dayJson.path("state_driven_messaging").asInt());
+        // Route to source-specific processing
+        if ("government".equals(source)) {
+            processSourceData(dayJson, day, true);
+        } else if ("independent".equals(source)) {
+            processSourceData(dayJson, day, false);
+        } else {
+            System.out.println("Warning: Unknown source '" + source + "' for day " + date + ". Skipping source-specific fields.");
+        }
+
+        // Propaganda and pro-protest counts are already source-aware in Python
+        // (forced to 0 based on source), so they aggregate at the root level
+        if (dayJson.has("propaganda_count") && !dayJson.path("propaganda_count").isNull()) {
+            Integer currentValue = day.getPropagandaCount();
+            if (currentValue == null) {
+                currentValue = 0;
+            }
+            day.setPropagandaCount(currentValue + dayJson.path("propaganda_count").asInt());
+        }
+
+        if (dayJson.has("pro_protest_count") && !dayJson.path("pro_protest_count").isNull()) {
+            Integer currentValue = day.getProProtestCount();
+            if (currentValue == null) {
+                currentValue = 0;
+            }
+            day.setProProtestCount(currentValue + dayJson.path("pro_protest_count").asInt());
+        }
+
+        dayRepository.save(day);
+    }
+
+    /**
+     * Process source-specific data fields
+     * Routes data to either government or independent nested structure
+     */
+    private void processSourceData(ObjectNode dayJson, Day day, boolean isGovernment) {
+        Day.SourceData sourceData;
+
+        if (isGovernment) {
+            if (day.getGovernment() == null) {
+                day.setGovernment(new Day.SourceData());
+            }
+            sourceData = day.getGovernment();
+        } else {
+            if (day.getIndependent() == null) {
+                day.setIndependent(new Day.SourceData());
+            }
+            sourceData = day.getIndependent();
+        }
+
+        // Update state driven messaging
+        if (dayJson.has("state_driven_messaging") && !dayJson.path("state_driven_messaging").isNull()) {
+            Integer currentValue = sourceData.getStateDrivenMessaging();
+            if (currentValue == null) {
+                currentValue = 0;
+            }
+            sourceData.setStateDrivenMessaging(currentValue + dayJson.path("state_driven_messaging").asInt());
+        }
+
+        // Update pro student messaging
+        if (dayJson.has("pro_student_messaging") && !dayJson.path("pro_student_messaging").isNull()) {
+            Integer currentValue = sourceData.getProStudentMessaging();
+            if (currentValue == null) {
+                currentValue = 0;
+            }
+            sourceData.setProStudentMessaging(currentValue + dayJson.path("pro_student_messaging").asInt());
+        }
+
+        // Update student mentions
+        if (dayJson.has("student_mentions")) {
+            ObjectNode mentionsNode = (ObjectNode) dayJson.path("student_mentions");
+
+            if (sourceData.getStudentMentions() == null) {
+                sourceData.setStudentMentions(new Day.StudentMentions());
             }
 
-            // Set pro student messaging
-            if (dayJson.has("pro_student_messaging") && !dayJson.path("pro_student_messaging").isNull()) {
-                day.setProStudentMessaging(dayJson.path("pro_student_messaging").asInt());
-            }
+            Day.StudentMentions mentions = sourceData.getStudentMentions();
 
-            // Set student mentions
-            if (dayJson.has("student_mentions")) {
-                ObjectNode mentionsNode = (ObjectNode) dayJson.path("student_mentions");
-                Day.StudentMentions mentions = new Day.StudentMentions();
-
-                if (mentionsNode.has("good_count") && !mentionsNode.path("good_count").isNull()) {
-                    mentions.setGoodCount(mentionsNode.path("good_count").asInt());
+            if (mentionsNode.has("good_count") && !mentionsNode.path("good_count").isNull()) {
+                Integer currentValue = mentions.getGoodCount();
+                if (currentValue == null) {
+                    currentValue = 0;
                 }
+                mentions.setGoodCount(currentValue + mentionsNode.path("good_count").asInt());
+            }
 
-                if (mentionsNode.has("bad_count") && !mentionsNode.path("bad_count").isNull()) {
-                    mentions.setBadCount(mentionsNode.path("bad_count").asInt());
+            if (mentionsNode.has("bad_count") && !mentionsNode.path("bad_count").isNull()) {
+                Integer currentValue = mentions.getBadCount();
+                if (currentValue == null) {
+                    currentValue = 0;
                 }
+                mentions.setBadCount(currentValue + mentionsNode.path("bad_count").asInt());
+            }
+        }
 
-                day.setStudentMentions(mentions);
+        // Update state mentions
+        if (dayJson.has("state_mentions")) {
+            ObjectNode mentionsNode = (ObjectNode) dayJson.path("state_mentions");
+
+            if (sourceData.getStateMentions() == null) {
+                sourceData.setStateMentions(new Day.StateMentions());
             }
 
-            // Set state mentions
-            if (dayJson.has("state_mentions")) {
-                ObjectNode mentionsNode = (ObjectNode) dayJson.path("state_mentions");
-                Day.StateMentions mentions = new Day.StateMentions();
+            Day.StateMentions mentions = sourceData.getStateMentions();
 
-                if (mentionsNode.has("good_count") && !mentionsNode.path("good_count").isNull()) {
-                    mentions.setGoodCount(mentionsNode.path("good_count").asInt());
+            if (mentionsNode.has("good_count") && !mentionsNode.path("good_count").isNull()) {
+                Integer currentValue = mentions.getGoodCount();
+                if (currentValue == null) {
+                    currentValue = 0;
                 }
+                mentions.setGoodCount(currentValue + mentionsNode.path("good_count").asInt());
+            }
 
-                if (mentionsNode.has("bad_count") && !mentionsNode.path("bad_count").isNull()) {
-                    mentions.setBadCount(mentionsNode.path("bad_count").asInt());
+            if (mentionsNode.has("bad_count") && !mentionsNode.path("bad_count").isNull()) {
+                Integer currentValue = mentions.getBadCount();
+                if (currentValue == null) {
+                    currentValue = 0;
                 }
-
-                day.setStateMentions(mentions);
+                mentions.setBadCount(currentValue + mentionsNode.path("bad_count").asInt());
             }
-
-            // Set propaganda count
-            if (dayJson.has("propaganda_count") && !dayJson.path("propaganda_count").isNull()) {
-                day.setPropagandaCount(dayJson.path("propaganda_count").asInt());
-            }
-
-            // Set pro protest count
-            if (dayJson.has("pro_protest_count") && !dayJson.path("pro_protest_count").isNull()) {
-                day.setProProtestCount(dayJson.path("pro_protest_count").asInt());
-            }
-
-            dayRepository.save(day);
         }
     }
 

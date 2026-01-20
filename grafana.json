@@ -429,8 +429,8 @@
             "type": "grafana-mongodb-datasource",
             "uid": "cekrx93uxzbwgc"
           },
-          "parsedQuery": "db.days.find({}, {\"x\":0,\"y\":0})",
-          "query": "db.days.find(\r\n  {},\r\n  { x: 0, y: 0 }\r\n)",
+          "parsedQuery": "db.days.aggregate([{\"$project\":{\"date\":1,\"gov_student_good\":\"$government.studentMentions.goodCount\",\"gov_student_bad\":\"$government.studentMentions.badCount\",\"ind_student_good\":\"$independent.studentMentions.goodCount\",\"ind_student_bad\":\"$independent.studentMentions.badCount\",\"gov_state_good\":\"$government.stateMentions.goodCount\",\"gov_state_bad\":\"$government.stateMentions.badCount\",\"ind_state_good\":\"$independent.stateMentions.goodCount\",\"ind_state_bad\":\"$independent.stateMentions.badCount\",\"gov_stateDrivenMessaging\":\"$government.stateDrivenMessaging\",\"ind_stateDrivenMessaging\":\"$independent.stateDrivenMessaging\",\"propagandaCount\":1,\"proProtestCount\":1}}])",
+          "query": "db.days.aggregate([\r\n  {\r\n    $project: {\r\n      date: 1,\r\n      gov_student_good: \"$government.studentMentions.goodCount\",\r\n      gov_student_bad: \"$government.studentMentions.badCount\",\r\n      ind_student_good: \"$independent.studentMentions.goodCount\",\r\n      ind_student_bad: \"$independent.studentMentions.badCount\",\r\n      gov_state_good: \"$government.stateMentions.goodCount\",\r\n      gov_state_bad: \"$government.stateMentions.badCount\",\r\n      ind_state_good: \"$independent.stateMentions.goodCount\",\r\n      ind_state_bad: \"$independent.stateMentions.badCount\",\r\n      gov_stateDrivenMessaging: \"$government.stateDrivenMessaging\",\r\n      ind_stateDrivenMessaging: \"$independent.stateDrivenMessaging\",\r\n      propagandaCount: 1,\r\n      proProtestCount: 1\r\n    }\r\n  }\r\n])",
           "queryType": "query",
           "refId": "A"
         }
@@ -454,8 +454,7 @@
           "id": "organize",
           "options": {
             "excludeByName": {
-              "proProtestCount": false,
-              "proStudentMessaging": true
+              "proProtestCount": false
             },
             "includeByName": {},
             "indexByName": {},
@@ -463,14 +462,18 @@
               "_class": "",
               "_id": "",
               "date": "",
-              "proProtestCount": "Pro-protest messaging count",
-              "proStudentMessaging": "",
-              "propagandaCount": "Anti-student messaging",
-              "stateDrivenMessaging": "Pro-government messaging",
-              "stateMentions.badCount": "Negative mentions of the state",
-              "stateMentions.goodCount": "Positive mentions of the state",
-              "studentMentions.badCount": "Negative mentions of students",
-              "studentMentions.goodCount": "Positive mentions of students"
+              "proProtestCount": "Pro-protest messaging count (Independent)",
+              "propagandaCount": "Anti-student messaging (Government)",
+              "gov_stateDrivenMessaging": "Pro-government messaging (Gov media)",
+              "ind_stateDrivenMessaging": "Pro-government messaging (Ind media)",
+              "gov_state_bad": "Negative state mentions (Gov media)",
+              "gov_state_good": "Positive state mentions (Gov media)",
+              "ind_state_bad": "Negative state mentions (Ind media)",
+              "ind_state_good": "Positive state mentions (Ind media)",
+              "gov_student_bad": "Negative student mentions (Gov media)",
+              "gov_student_good": "Positive student mentions (Gov media)",
+              "ind_student_bad": "Negative student mentions (Ind media)",
+              "ind_student_good": "Positive student mentions (Ind media)"
             }
           }
         }
@@ -538,13 +541,29 @@
             "type": "grafana-mongodb-datasource",
             "uid": "cekrx93uxzbwgc"
           },
-          "parsedQuery": "db.days.aggregate([{\"$group\":{\"_id\":\"$studentMentions.independent\",\"total_good\":{\"$sum\":\"$studentMentions.goodCount\"},\"total_bad\":{\"$sum\":\"$studentMentions.badCount\"}}}])",
-          "query": "db.days.aggregate([\r\n \r\n  {\r\n    \"$group\": {\r\n      \"_id\": \"$studentMentions.independent\",\r\n      \"total_good\": { \"$sum\": \"$studentMentions.goodCount\" },\r\n      \"total_bad\": { \"$sum\": \"$studentMentions.badCount\" }\r\n    }\r\n  }\r\n\r\n])",
+          "parsedQuery": "db.days.aggregate([{\"$group\":{\"_id\":null,\"gov_good\":{\"$sum\":\"$government.studentMentions.goodCount\"},\"gov_bad\":{\"$sum\":\"$government.studentMentions.badCount\"},\"ind_good\":{\"$sum\":\"$independent.studentMentions.goodCount\"},\"ind_bad\":{\"$sum\":\"$independent.studentMentions.badCount\"}}}])",
+          "query": "db.days.aggregate([\r\n  {\r\n    $group: {\r\n      _id: null,\r\n      gov_good: { $sum: \"$government.studentMentions.goodCount\" },\r\n      gov_bad: { $sum: \"$government.studentMentions.badCount\" },\r\n      ind_good: { $sum: \"$independent.studentMentions.goodCount\" },\r\n      ind_bad: { $sum: \"$independent.studentMentions.badCount\" }\r\n    }\r\n  }\r\n])",
           "queryType": "query",
           "refId": "A"
         }
       ],
-      "title": "Student mentions in media",
+      "title": "Student mentions in media (by source)",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "_id": true
+            },
+            "renameByName": {
+              "gov_good": "Positive (Gov media)",
+              "gov_bad": "Negative (Gov media)",
+              "ind_good": "Positive (Ind media)",
+              "ind_bad": "Negative (Ind media)"
+            }
+          }
+        }
+      ],
       "type": "piechart"
     },
     {
@@ -606,13 +625,29 @@
             "type": "grafana-mongodb-datasource",
             "uid": "cekrx93uxzbwgc"
           },
-          "parsedQuery": "db.days.aggregate([{\"$group\":{\"_id\":\"$studentMentions.independent\",\"total_good\":{\"$sum\":\"$stateMentions.goodCount\"},\"total_bad\":{\"$sum\":\"$stateMentions.badCount\"}}}])",
-          "query": "db.days.aggregate([\r\n \r\n  {\r\n    \"$group\": {\r\n      \"_id\": \"$studentMentions.independent\",\r\n      \"total_good\": { \"$sum\": \"$stateMentions.goodCount\" },\r\n      \"total_bad\": { \"$sum\": \"$stateMentions.badCount\" }\r\n    }\r\n  }\r\n\r\n])",
+          "parsedQuery": "db.days.aggregate([{\"$group\":{\"_id\":null,\"gov_good\":{\"$sum\":\"$government.stateMentions.goodCount\"},\"gov_bad\":{\"$sum\":\"$government.stateMentions.badCount\"},\"ind_good\":{\"$sum\":\"$independent.stateMentions.goodCount\"},\"ind_bad\":{\"$sum\":\"$independent.stateMentions.badCount\"}}}])",
+          "query": "db.days.aggregate([\r\n  {\r\n    $group: {\r\n      _id: null,\r\n      gov_good: { $sum: \"$government.stateMentions.goodCount\" },\r\n      gov_bad: { $sum: \"$government.stateMentions.badCount\" },\r\n      ind_good: { $sum: \"$independent.stateMentions.goodCount\" },\r\n      ind_bad: { $sum: \"$independent.stateMentions.badCount\" }\r\n    }\r\n  }\r\n])",
           "queryType": "query",
           "refId": "A"
         }
       ],
-      "title": "State Mentions in media",
+      "title": "State Mentions in media (by source)",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "_id": true
+            },
+            "renameByName": {
+              "gov_good": "Positive (Gov media)",
+              "gov_bad": "Negative (Gov media)",
+              "ind_good": "Positive (Ind media)",
+              "ind_bad": "Negative (Ind media)"
+            }
+          }
+        }
+      ],
       "type": "piechart"
     },
     {

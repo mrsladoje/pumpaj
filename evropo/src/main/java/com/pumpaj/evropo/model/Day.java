@@ -11,18 +11,59 @@ public class Day {
 
     @Indexed(unique = true)
     private String date;
-    private Integer stateDrivenMessaging;
-    private Integer proStudentMessaging;
-    private StudentMentions studentMentions;
-    private StateMentions stateMentions;
+
+    // Source-aware nested structures
+    private SourceData government;
+    private SourceData independent;
+
+    // These stay at root level (already source-aware via Python logic)
     private Integer propagandaCount;
     private Integer proProtestCount;
+
+    // Inner class for source-specific data
+    public static class SourceData {
+        private Integer stateDrivenMessaging;
+        private Integer proStudentMessaging;
+        private StudentMentions studentMentions;
+        private StateMentions stateMentions;
+
+        public Integer getStateDrivenMessaging() {
+            return stateDrivenMessaging;
+        }
+
+        public void setStateDrivenMessaging(Integer stateDrivenMessaging) {
+            this.stateDrivenMessaging = stateDrivenMessaging;
+        }
+
+        public Integer getProStudentMessaging() {
+            return proStudentMessaging;
+        }
+
+        public void setProStudentMessaging(Integer proStudentMessaging) {
+            this.proStudentMessaging = proStudentMessaging;
+        }
+
+        public StudentMentions getStudentMentions() {
+            return studentMentions;
+        }
+
+        public void setStudentMentions(StudentMentions studentMentions) {
+            this.studentMentions = studentMentions;
+        }
+
+        public StateMentions getStateMentions() {
+            return stateMentions;
+        }
+
+        public void setStateMentions(StateMentions stateMentions) {
+            this.stateMentions = stateMentions;
+        }
+    }
 
     public static class StudentMentions {
         private Integer goodCount;
         private Integer badCount;
 
-        // Getters and setters
         public Integer getGoodCount() {
             return goodCount;
         }
@@ -44,7 +85,6 @@ public class Day {
         private Integer goodCount;
         private Integer badCount;
 
-        // Getters and setters
         public Integer getGoodCount() {
             return goodCount;
         }
@@ -62,7 +102,7 @@ public class Day {
         }
     }
 
-    // Getters and setters
+    // Getters and setters for main class
     public String getId() {
         return id;
     }
@@ -79,36 +119,20 @@ public class Day {
         this.date = date;
     }
 
-    public Integer getStateDrivenMessaging() {
-        return stateDrivenMessaging;
+    public SourceData getGovernment() {
+        return government;
     }
 
-    public void setStateDrivenMessaging(Integer stateDrivenMessaging) {
-        this.stateDrivenMessaging = stateDrivenMessaging;
+    public void setGovernment(SourceData government) {
+        this.government = government;
     }
 
-    public Integer getProStudentMessaging() {
-        return proStudentMessaging;
+    public SourceData getIndependent() {
+        return independent;
     }
 
-    public void setProStudentMessaging(Integer proStudentMessaging) {
-        this.proStudentMessaging = proStudentMessaging;
-    }
-
-    public StudentMentions getStudentMentions() {
-        return studentMentions;
-    }
-
-    public void setStudentMentions(StudentMentions studentMentions) {
-        this.studentMentions = studentMentions;
-    }
-
-    public StateMentions getStateMentions() {
-        return stateMentions;
-    }
-
-    public void setStateMentions(StateMentions stateMentions) {
-        this.stateMentions = stateMentions;
+    public void setIndependent(SourceData independent) {
+        this.independent = independent;
     }
 
     public Integer getPropagandaCount() {
